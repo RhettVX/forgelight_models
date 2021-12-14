@@ -1,0 +1,124 @@
+u32
+convert_m(u32 i)
+    {
+    u32 m = i << 13;
+    u32 e = 0;
+
+    while(!(m & 0x00800000))
+        {
+        e -= 0x00800000;
+        m <<= 1;
+        }
+
+    m &= ~0x00800000;
+    e += 0x38800000;
+
+    return m | e; 
+    }
+
+int
+bake_hfloat_conversion_table()
+    {
+    // NOTE(rhett): Mantissa Table
+    u32 m_table[2048] = {0};
+
+    for (int i = 1; i < 1024; i++)
+        {
+        m_table[i] = convert_m(i);
+        }
+
+    for (int i = 1024; i < 2048; i++)
+        {
+        m_table[i] = 0x38000000 + ((i-1024) << 13);
+        }
+
+    // NOTE(rhett): Exponent Table
+    u32 e_table[64] = {0};
+    e_table[32] = 0x80000000;
+
+    for (int i = 1; i < 31; i++)
+        {
+        e_table[i] = i << 23;
+        }
+
+    for (int i = 33; i < 63; i++)
+        {
+        e_table[i] = 0x80000000 + ((i - 32) << 23);
+        }
+
+    e_table[31] = 0x47800000;
+    e_table[63] = 0xc7800000;
+
+    // NOTE(rhett): Offset Table
+    u16 o_table[64] = {0};
+    o_table[32] = 0;
+
+    for (int i = 1; i < 32; i++)
+        {
+        o_table[i] = 1024;
+        }
+    for (int i = 33; i < 64; i++)
+        {
+        o_table[i] = 1024;
+        }
+
+
+    // NOTE(rhett): Bake
+    FILE* bake_file = fopen("conv_table.c", "w");
+    fputs("u32 m_table[2048] = {\n", bake_file);
+    for (int i = 0; i < ARRAY_COUNT(m_table); i++)
+        {
+        fprintf(bake_file, "%#x", m_table[i]);
+        if (i != ARRAY_COUNT(m_table)-1)
+            {
+            fputs(",", bake_file);
+            }
+        if (!((i+1) % 8))
+            {
+            fputs("\n", bake_file);
+            }
+        else
+            {
+            fputs(" ", bake_file);
+            }
+        }
+    fputs("};\n", bake_file);
+
+    fputs("\nu32 e_table[64] = {\n", bake_file);
+    for (int i = 0; i < ARRAY_COUNT(e_table); i++)
+        {
+        fprintf(bake_file, "%#x", e_table[i]);
+        if (i != ARRAY_COUNT(e_table)-1)
+            {
+            fputs(",", bake_file);
+            }
+        if (!((i+1) % 8))
+            {
+            fputs("\n", bake_file);
+            }
+        else
+            {
+            fputs(" ", bake_file);
+            }
+        }
+    fputs("};\n", bake_file);
+
+    fputs("\nu16 o_table[64] = {\n", bake_file);
+    for (int i = 0; i < ARRAY_COUNT(o_table); i++)
+        {
+        fprintf(bake_file, "%#x", o_table[i]);
+        if (i != ARRAY_COUNT(o_table)-1)
+            {
+            fputs(",", bake_file);
+            }
+        if (!((i+1) % 8))
+            {
+            fputs("\n", bake_file);
+            }
+        else
+            {
+            fputs(" ", bake_file);
+            }
+        }
+    fputs("};\n", bake_file);
+    }
